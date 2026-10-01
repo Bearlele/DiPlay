@@ -60,11 +60,13 @@
     <string name="status_attaching_ncm">Подключение сети NCM/AirPlay</string>
     <string name="status_failed">Ошибка: %1$s</string>
     <string name="msg_car_hotspot_off">Точка доступа автомобиля «%1$s» выключена. Включите её в настройках автомобиля перед подключением.</string>
+    <string name="msg_car_hotspot_off_unnamed">Точка доступа автомобиля выключена. Включите её и сохраните имя и пароль в DiPlay.</string>
     <string name="home_public_preview">ОТКРЫТАЯ ПРЕДВАРИТЕЛЬНАЯ ВЕРСИЯ  ·\u0020\u0020</string>
     <string name="choose_iphone_prefix">Выбрать iPhone ·\u0020</string>
     <string name="audio_saved_value">Сохранено: %1$d</string>
     <string name="about_public_preview_prefix">Предварительная версия ·\u0020</string>
     <string name="msg_car_hotspot_connect">DiPlay подключается через точку доступа автомобиля «%1$s». Включите её в настройках автомобиля и подключитесь.</string>
+    <string name="msg_car_hotspot_connect_unnamed">Включите точку доступа автомобиля и сохраните её имя и пароль в DiPlay перед подключением.</string>
     <string name="edit_saved_hotspot_prefix">Изменить сохранённую точку доступа ·\u0020</string>
     <string name="cluster_adb_multi_device">Если ADB перечисляет несколько устройств, используйте adb -s &lt;car-device-ID&gt; shell appops set %1$s GET_USAGE_STATS allow. Узнать ID можно командой adb devices.</string>
     <string name="status_ready_for_prefix">Готов к\u0020</string>
@@ -72,7 +74,7 @@
     <string name="resolution_handshake_prefix">Разрешение рукопожатия:\u0020</string>
     <string name="safe_area_full_screen_at">Безопасная область: полный экран \u0020</string>
     <string name="safe_area_prefix">Безопасная область:\u0020</string>
-    <string name="settings_android9_compat">Следующие настройки недоступны и скрыты на Android 9 (API 28):\n• Wi-Fi P2P (5 ГГц) — вместо него используется LocalOnlyHotspot.\n• Программный декодер HEVC — вместо него используется аппаратное декодирование.</string>
+    <string name="settings_android9_compat">В Android 8.1 диапазон Wi-Fi Direct выбирает система автомобиля; драйвер должен сообщать фактический канал. Программное декодирование HEVC недоступно; используйте аппаратное декодирование видео.</string>
     <string name="settings_mfi_address_hint">Адрес должен начинаться с http:// или https://. Токен необязателен и отправляется как Authorization bearer token.</string>
     <string name="language_section_title">Язык</string>
     <string name="language_app_language">Язык приложения</string>
@@ -94,7 +96,7 @@
     <string name="allow_precise_location_for_diplay_in_the_head_unit_s_app_p">Разрешите точное «Местоположение» для DiPlay в разрешениях приложения головного устройства.</string>
     <string name="allow_the_connection_permission_to_continue">Разрешите подключение, чтобы продолжить</string>
     <string name="an_independent_carplay_receiver_for_android_head_units_wir">Независимый приёмник CarPlay для головных устройств Android. Проводные и беспроводные подключения работают на головном устройстве с локальной аутентификацией. Обычный iPhone может подключиться без джейлбрейка, Mac, переходника или входа в учётную запись.\n\nВ этой предварительной версии используется экспериментальная аксессуарная идентичность. Совместимость со всеми iPhone и головными устройствами ещё тестируется. Продукт не сертифицирован Apple.</string>
-    <string name="android_9_compatibility">Совместимость с Android 9</string>
+    <string name="android_9_compatibility">Совместимость с Android</string>
     <string name="app_permissions">Разрешения приложения</string>
     <string name="app_settings">Настройки приложения</string>
     <string name="apply_and_reconnect">Применить и переподключиться</string>
@@ -197,6 +199,8 @@
     <string name="hide_bottom_bar">Скрыть нижнюю панель</string>
     <string name="hide_keyboard">Скрыть клавиатуру</string>
     <string name="hide_the_car_s_system_bars_while_carplay_is_open">Скрывать системные панели автомобиля, пока открыт CarPlay.</string>
+    <string name="carplay_touch_input">Сенсорное управление CarPlay</string>
+    <string name="forward_head_unit_touch_to_iphone">Выключите, чтобы не передавать касания экрана автомобиля на iPhone. Жест тремя пальцами по-прежнему открывает настройки DiPlay.</string>
     <string name="hide_the_navigation_bar">Скрыть панель навигации</string>
     <string name="hide_the_status_bar">Скрыть панель состояния</string>
     <string name="hide_top_bar">Скрыть верхнюю панель</string>
@@ -295,6 +299,7 @@
     <string name="right_hand_drive">Праворукий руль</string>
     <string name="running">Работает</string>
     <string name="s_1000_ms_most_stable">1000 мс · самая стабильная</string>
+    <string name="s_0_ms_minimum">0 мс · минимальная задержка</string>
     <string name="s_1_choose_your_connection">1 · Выберите способ подключения</string>
     <string name="s_1_connect_a_computer_with_adb_installed_to_the_car_using">1. Подключите компьютер с установленным ADB к автомобилю по имеющемуся USB или беспроводной отладке. При запросе подтвердите отладку на автомобиле.\n\n2. Выполните эту команду в терминале компьютера:</string>
     <string name="s_1_open_car_hotspot_settings_turn_the_hotspot_on_and_sele">1. Откройте настройки точки доступа автомобиля, включите её и выберите 5 ГГц, если доступно.\n2. Точно скопируйте ниже её имя и пароль.\n3. Оставляйте точку доступа включённой при подключении. DiPlay передаёт данные по Bluetooth; iPhone подключится автоматически.</string>

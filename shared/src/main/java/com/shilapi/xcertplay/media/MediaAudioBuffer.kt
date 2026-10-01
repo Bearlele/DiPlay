@@ -7,7 +7,9 @@ package com.shilapi.xcertplay.media
  */
 object MediaAudioBuffer {
     const val DEFAULT_MILLIS = 300
-    val presets = listOf(DEFAULT_MILLIS, 500, 1000)
+    // 0 means start as soon as the first PCM chunk is written; Android's AudioTrack still has
+    // unavoidable hardware/decoder latency, and this mode trades resilience to Wi-Fi jitter for speed.
+    val presets = listOf(0, DEFAULT_MILLIS, 500, 1000)
 
     private const val HEADROOM_MILLIS = 200 // room above the start level so bursts after a gap fit
     private const val MIN_TRACK_BUFFER_BYTES = 16 * 1024
@@ -25,11 +27,12 @@ object MediaAudioBuffer {
         )
         if (!isMedia) return lowLatency
         val bytesPerSecond = sampleRate.toLong() * channels.coerceIn(1, 2) * 2
-        val start = (bytesPerSecond * sanitize(mediaMillis) / 1000).toInt()
-        val capacity = (bytesPerSecond * (sanitize(mediaMillis) + HEADROOM_MILLIS) / 1000).toInt()
+        val selectedMillis = sanitize(mediaMillis)
+        val start = (bytesPerSecond * selectedMillis / 1000).toInt()
+        val capacity = (bytesPerSecond * (selectedMillis + HEADROOM_MILLIS) / 1000).toInt()
         return Plan(
             trackBufferBytes = maxOf(capacity, lowLatency.trackBufferBytes),
-            startBytes = maxOf(start, lowLatency.startBytes),
+            startBytes = if (selectedMillis == 0) 0 else maxOf(start, lowLatency.startBytes),
         )
     }
 
@@ -38,6 +41,7 @@ object MediaAudioBuffer {
      * paused and full, so the start level must stay below the real capacity or play() never runs.
      */
     fun startBytesFor(plannedStartBytes: Int, actualCapacityBytes: Int, writeChunkBytes: Int): Int {
+        if (plannedStartBytes <= 0) return writeChunkBytes
         if (actualCapacityBytes <= 0) return plannedStartBytes
         return minOf(plannedStartBytes, actualCapacityBytes - writeChunkBytes).coerceAtLeast(writeChunkBytes)
     }

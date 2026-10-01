@@ -46,9 +46,11 @@ internal object P2pStartupRecovery {
         stationFrequency: Int?,
         beforeRetry: () -> Unit,
         preferred: P2pCreationRequest? = null,
+        legacy: Boolean = false,
         request: (P2pCreationRequest) -> Unit,
     ): P2pCreationRequest {
-        val modes = plan(stationFrequency, preferred)
+        val modes = if (legacy) listOf(P2pCreationRequest(P2pCreationMode.SYSTEM_DEFAULT))
+            else plan(stationFrequency, preferred)
         var retriedBusy = false
         for ((index, mode) in modes.withIndex()) {
             while (true) {

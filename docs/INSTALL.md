@@ -1,15 +1,17 @@
 # Install and connect
 
 1. Park the car. Download `DiPlay-0.2.8.apk` from the official GitHub release linked on the website.
-2. Install on the Android head unit using its supported APK installation method. Do not install on the iPhone. Update over an existing DiPlay beta to retain settings and pairing records; the signing key is unchanged.
+2. Install on the Android head unit using its supported APK installation method. Do not install on the iPhone. The official release updates earlier official DiPlay builds with the same signing key.
 3. Open DiPlay. Grant the permissions requested for the features you use: Bluetooth/Nearby devices, Wi-Fi/Location on older Android, and microphone for Siri/calls. Allow notifications for connection controls.
 4. Close other phone-projection apps before connecting.
 
+The Android 8.0+ test APK uses the separate `com.shihab.diplay.hudtest` package and a debug signing key. It can coexist with the official app but does not update it or share its saved settings. Install the test APK on the car and configure its hotspot settings separately.
+
 ## Wireless
 
-Built-in car hotspot is the default. Open **Settings → Connection setup → Built-in car hotspot**, turn on the car hotspot at 5 GHz if available, and save its exact name and password. Keep Bluetooth and Wi-Fi enabled on the iPhone, pair it with the car, then tap **Connect phone**. The phone joins automatically after the Bluetooth handshake; manual Wi-Fi joining and ADB are not required. **Choose iPhone** changes the selected paired device. See [the setup guide](CONNECTION_SETUP.md).
+Built-in car hotspot is the default. Open **Settings → Connection setup → Built-in car hotspot**, turn on the car hotspot, and save its exact name and password. Choose the hotspot band in the car's settings; if the Android 8.1 car provides only 2.4 GHz, use it. DiPlay handles the channel automatically. Keep Bluetooth and Wi-Fi enabled on the iPhone, pair it with the car, then tap **Connect phone**. The phone joins automatically after the Bluetooth handshake; manual Wi-Fi joining and ADB are not required. **Choose iPhone** changes the selected paired device. See [the setup guide](CONNECTION_SETUP.md).
 
-Wi-Fi Direct remains an alternative on Android 10+. The Local hotspot option has been removed; existing selections migrate to built-in hotspot. USB remains available.
+Wi-Fi Direct remains an alternative, including an Android 8.0+ legacy path. Its frequency is chosen by the firmware and must be read from the driver. Wireless CarPlay video and audio are confirmed on a physical Android 8.0 Xiaomi Mi 6. The Local hotspot option has been removed; existing selections migrate to built-in hotspot. USB remains available. Verify operation on the target head unit before relying on it.
 
 ## USB
 

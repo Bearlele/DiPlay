@@ -295,7 +295,9 @@ class ManualHotspotManager(
             val ssid = configuration.ssid ?: return null
             val bandAndChannel = when {
                 Build.VERSION.SDK_INT >= 36 -> {
-                    val channels = configuration.channels
+                    val channels = SoftApConfiguration::class.java.getMethod("getChannels")
+                        .invoke(configuration) as? android.util.SparseIntArray
+                        ?: return null
                     if (channels.size() == 0) null else channels.keyAt(0) to channels.valueAt(0)
                 }
                 else -> {
@@ -368,7 +370,9 @@ class ManualHotspotManager(
         val keyManagement = configuration.allowedKeyManagement ?: return Iap2WirelessSecurity.NONE
         val open = keyManagement.get(WifiConfiguration.KeyMgmt.NONE)
         val wpa2 = keyManagement.get(WifiConfiguration.KeyMgmt.WPA2_PSK)
-        val sae = keyManagement.get(WifiConfiguration.KeyMgmt.SAE)
+        // The WPA3 flag is absent from pre-Android-10 framework builds.
+        val sae = WifiConfiguration.KeyMgmt::class.java.optionalFlag("SAE")
+            ?.let(keyManagement::get) == true
         return when {
             open && !wpa2 && !sae -> Iap2WirelessSecurity.NONE
             wpa2 && sae -> Iap2WirelessSecurity.WPA3_TRANSITION
@@ -396,6 +400,9 @@ class ManualHotspotManager(
 
     private fun ByteArray.toMacAddressString(): String =
         joinToString(":") { byte -> "%02x".format(byte.toInt() and 0xff) }
+
+    private fun Class<*>.optionalFlag(name: String): Int? =
+        runCatching { getField(name).getInt(null) }.getOrNull()
 
     private fun sleep(nanos: Long) {
         try {

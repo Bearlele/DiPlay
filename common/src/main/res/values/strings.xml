@@ -60,11 +60,13 @@
     <string name="status_attaching_ncm">Attaching NCM/AirPlay network</string>
     <string name="status_failed">Failed: %1$s</string>
     <string name="msg_car_hotspot_off">The car hotspot “%1$s” is off. Turn it on in the car settings before connecting.</string>
+    <string name="msg_car_hotspot_off_unnamed">The car hotspot is off. Turn it on in the car settings, then save its name and password in DiPlay.</string>
     <string name="home_public_preview">PUBLIC PREVIEW  ·\u0020\u0020</string>
     <string name="choose_iphone_prefix">Choose iPhone ·\u0020</string>
     <string name="audio_saved_value">Saved: %1$d</string>
     <string name="about_public_preview_prefix">Public preview ·\u0020</string>
     <string name="msg_car_hotspot_connect">DiPlay connects through the car hotspot “%1$s”. Turn it on in the car settings, then connect.</string>
+    <string name="msg_car_hotspot_connect_unnamed">Turn on the car hotspot in the car settings, then save its name and password in DiPlay before connecting.</string>
     <string name="edit_saved_hotspot_prefix">Edit saved hotspot ·\u0020</string>
     <string name="cluster_adb_multi_device">If ADB lists several devices, use adb -s &lt;car-device-ID&gt; shell appops set %1$s GET_USAGE_STATS allow. Find the ID with adb devices.</string>
     <string name="status_ready_for_prefix">Ready for\u0020</string>
@@ -72,7 +74,7 @@
     <string name="resolution_handshake_prefix">Handshake resolution:\u0020</string>
     <string name="safe_area_full_screen_at">Safe area: full screen at\u0020</string>
     <string name="safe_area_prefix">Safe area:\u0020</string>
-    <string name="settings_android9_compat">The following settings are unavailable and hidden on Android 9 (API 28):\n• Wi-Fi P2P (5 GHz) — LocalOnlyHotspot is used instead.\n• HEVC software decoder — hardware decoding is used instead.</string>
+    <string name="settings_android9_compat">On Android 8.1, Wi-Fi Direct uses the band selected by the car’s firmware and requires a readable radio channel. Software HEVC decoding is unavailable; use hardware video decoding.</string>
     <string name="settings_mfi_address_hint">Address must start with http:// or https://. Token is optional and sent as an Authorization bearer token.</string>
     <string name="app_name">DiPlay</string>
     <string name="language_section_title">Language</string>
@@ -95,7 +97,7 @@
     <string name="allow_precise_location_for_diplay_in_the_head_unit_s_app_p">Allow precise Location for DiPlay in the head unit’s app permissions.</string>
     <string name="allow_the_connection_permission_to_continue">Allow the connection permission to continue</string>
     <string name="an_independent_carplay_receiver_for_android_head_units_wir">An independent CarPlay receiver for Android head units. Wired and wireless connections run on the head unit, with local authentication. A standard iPhone can connect without a jailbreak, Mac, dongle or sign-in.\n\nThis preview uses an experimental accessory identity. Compatibility with every iPhone and head unit is still being tested. It is not an Apple-certified product.</string>
-    <string name="android_9_compatibility">Android 9 compatibility</string>
+    <string name="android_9_compatibility">Android compatibility</string>
     <string name="app_permissions">App permissions</string>
     <string name="app_settings">App settings</string>
     <string name="apply_and_reconnect">Apply and reconnect</string>
@@ -200,6 +202,8 @@
     <string name="hide_bottom_bar">Hide bottom bar</string>
     <string name="hide_keyboard">Hide keyboard</string>
     <string name="hide_the_car_s_system_bars_while_carplay_is_open">Hide the car’s system bars while CarPlay is open.</string>
+    <string name="carplay_touch_input">CarPlay touch control</string>
+    <string name="forward_head_unit_touch_to_iphone">Turn off to stop sending head unit touch events to iPhone. The three-finger gesture still opens DiPlay settings.</string>
     <string name="hide_the_navigation_bar">Hide the navigation bar</string>
     <string name="hide_the_status_bar">Hide the status bar</string>
     <string name="hide_top_bar">Hide top bar</string>
@@ -301,6 +305,7 @@
     <string name="running">Running</string>
     <string name="s_0_3x">0.3x</string>
     <string name="s_1000_ms_most_stable">1000 ms · most stable</string>
+    <string name="s_0_ms_minimum">0 ms · minimum delay</string>
     <string name="s_1_0x">1.0x</string>
     <string name="s_1_choose_your_connection">1 · Choose your connection</string>
     <string name="s_1_connect_a_computer_with_adb_installed_to_the_car_using">1. Connect a computer with ADB installed to the car using your existing USB or wireless debugging connection. Approve debugging on the car if asked.\n\n2. Run this command in the computer’s terminal:</string>

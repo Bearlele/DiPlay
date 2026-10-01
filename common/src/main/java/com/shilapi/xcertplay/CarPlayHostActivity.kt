@@ -2296,9 +2296,8 @@ class CarPlayHostActivity : ComponentActivity() {
             setPadding(0, dp(8), 0, 0)
         }
         val modes = buildList {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                add(WirelessHotspotMode.WIFI_P2P to getString(R.string.wi_fi_p2p_5_ghz))
-            }
+            add(WirelessHotspotMode.WIFI_P2P to if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                getString(R.string.wi_fi_p2p_5_ghz) else getString(R.string.wifi_direct))
             add(WirelessHotspotMode.MANUAL to getString(R.string.built_in_car_hotspot))
         }
         var selectedId = View.NO_ID
@@ -2506,7 +2505,8 @@ class CarPlayHostActivity : ComponentActivity() {
     }
 
     private fun hotspotModeLabel(mode: WirelessHotspotMode): String = when (mode) {
-        WirelessHotspotMode.WIFI_P2P -> getString(R.string.wi_fi_p2p_5_ghz)
+        WirelessHotspotMode.WIFI_P2P -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+            getString(R.string.wi_fi_p2p_5_ghz) else getString(R.string.wifi_direct)
         WirelessHotspotMode.LOCAL_ONLY_HOTSPOT -> getString(R.string.localonlyhotspot)
         WirelessHotspotMode.MANUAL -> getString(R.string.manual_hotspot)
     }
@@ -3327,19 +3327,29 @@ class CarPlayHostActivity : ComponentActivity() {
         sink = null
         teardownExecutor.execute {
             oldController?.close()
-            oldController?.awaitClosed(CONTROLLER_CLOSE_TIMEOUT_MILLIS)
+            var clean = oldController?.awaitClosed(CONTROLLER_CLOSE_TIMEOUT_MILLIS) ?: true
+            // Do not race a still-closing wireless stack. Wi-Fi Direct group removal can take
+            // longer than the first wait on some head units.
+            repeat(2) {
+                if (!clean) clean = oldController?.awaitClosed(CONTROLLER_CLOSE_TIMEOUT_MILLIS) ?: true
+            }
             oldSink?.close()
             runOnUiThread {
                 if (!shuttingDown.get() && generation == restartGeneration) {
-                    handshakeResetInProgress = false
-                    startCarPlay(size)
+                    if (!clean) appendLog("Previous CarPlay stack is still closing; continuing after timeout")
+                    val settleMillis = if (wirelessEnabled) WIRELESS_RESTART_SETTLE_MILLIS else 0L
+                    mainHandler.postDelayed({
+                        if (shuttingDown.get() || generation != restartGeneration) return@postDelayed
+                        handshakeResetInProgress = false
+                        startCarPlay(activeDisplaySize ?: size)
+                    }, settleMillis)
                 }
             }
         }
     }
 
     private fun showDiPlayHome(page: String = "home") {
-        controller?.sendTouch(emptyList())
+        if (AirPlayPersistence.loadCarPlayTouchEnabled(this)) controller?.sendTouch(emptyList())
         startActivity(Intent(this, DiPlayActivity::class.java)
             .putExtra("page", page).addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
     }
@@ -3439,7 +3449,9 @@ class CarPlayHostActivity : ComponentActivity() {
                     gestureTracking = true
                     gestureStartX = pointerCentroid(event, horizontal = true)
                     gestureStartY = pointerCentroid(event, horizontal = false)
-                    controller?.sendTouch(emptyList())
+                    if (AirPlayPersistence.loadCarPlayTouchEnabled(this)) {
+                        controller?.sendTouch(emptyList())
+                    }
                     appendLog("Three-finger swipe tracking started")
                     return true
                 }
@@ -3474,8 +3486,12 @@ class CarPlayHostActivity : ComponentActivity() {
             return true
         }
 
-        val contacts = CarPlayTouchMapper.contacts(event, view.width, view.height)
-        val queued = controller?.sendTouch(contacts) ?: false
+        val queued = if (AirPlayPersistence.loadCarPlayTouchEnabled(this)) {
+            val contacts = CarPlayTouchMapper.contacts(event, view.width, view.height)
+            controller?.sendTouch(contacts) ?: false
+        } else {
+            false
+        }
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN,
             MotionEvent.ACTION_POINTER_DOWN,
@@ -3655,6 +3671,7 @@ class CarPlayHostActivity : ComponentActivity() {
         const val RECONNECT_DELAY_MILLIS = 2_000L
         const val IAP_TUNNEL_RECONNECT_DELAY_MILLIS = 15_000L
         const val CONTROLLER_CLOSE_TIMEOUT_MILLIS = 4_000L
+        const val WIRELESS_RESTART_SETTLE_MILLIS = 1_500L
         const val AUDIO_CAPTURE_MARKER = "audio-capture.enabled"
         const val AUDIO_CAPTURE_DIRECTORY = "audio-captures"
         const val PROTOCOL_TRACE_PREFIX = "TRACE "

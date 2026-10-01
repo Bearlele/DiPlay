@@ -4,7 +4,7 @@ This public preview is an independent receiver, not an Apple-certified CarPlay a
 
 | Area | Current scope |
 | --- | --- |
-| Head unit | Android 9+ APK; wireless Wi-Fi Direct path needs Android 10+ |
+| Head unit | Android 8.0+ (API 26) compatibility build. User confirmed wireless CarPlay video and audio on a physical Xiaomi Mi 6 running Android 8.0. Legacy Wi-Fi Direct group creation and channel reporting were also observed. The target Android 8.1 head unit and wired use remain unverified. |
 | Phone | Standard, non-jailbroken iPhone with CarPlay enabled; device/iOS compatibility varies |
 | Physical evidence | Previous private builds: wired and wireless picture, touch and audio confirmed on the development car with iPhone XS / iOS 18.7.10 |
 | Other cars | Mixed community reports across DiLink generations; not a certified model support list |

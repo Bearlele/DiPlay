@@ -60,11 +60,13 @@
     <string name="status_attaching_ncm">Conectando la red NCM/AirPlay</string>
     <string name="status_failed">Error: %1$s</string>
     <string name="msg_car_hotspot_off">El punto de acceso del coche «%1$s» está apagado. Actívalo en la configuración del coche antes de conectarte.</string>
+    <string name="msg_car_hotspot_off_unnamed">El punto de acceso del coche está apagado. Actívalo y guarda su nombre y contraseña en DiPlay.</string>
     <string name="home_public_preview">VISTA PREVIA PÚBLICA  ·\u0020\u0020</string>
     <string name="choose_iphone_prefix">Elegir iPhone ·\u0020</string>
     <string name="audio_saved_value">Guardado: %1$d</string>
     <string name="about_public_preview_prefix">Vista previa ·\u0020</string>
     <string name="msg_car_hotspot_connect">DiPlay se conecta a través del punto de acceso del coche «%1$s». Actívalo en la configuración del coche y luego conéctate.</string>
+    <string name="msg_car_hotspot_connect_unnamed">Activa el punto de acceso del coche y guarda su nombre y contraseña en DiPlay antes de conectarte.</string>
     <string name="edit_saved_hotspot_prefix">Editar punto de acceso guardado ·\u0020</string>
     <string name="cluster_adb_multi_device">Si ADB lista varios dispositivos, usa adb -s &lt;car-device-ID&gt; shell appops set %1$s GET_USAGE_STATS allow. Encuentra el ID con adb devices.</string>
     <string name="status_ready_for_prefix">Listo para\u0020</string>
@@ -72,7 +74,7 @@
     <string name="resolution_handshake_prefix">Resolución del enlace:\u0020</string>
     <string name="safe_area_full_screen_at">Zona segura: pantalla completa en\u0020</string>
     <string name="safe_area_prefix">Zona segura:\u0020</string>
-    <string name="settings_android9_compat">Los siguientes ajustes no están disponibles y están ocultos en Android 9 (API 28):\n• Wi-Fi P2P (5 GHz) — se usa LocalOnlyHotspot en su lugar.\n• Decodificador por software HEVC — se usa la decodificación por hardware en su lugar.</string>
+    <string name="settings_android9_compat">En Android 8.1, el sistema del coche elige la banda de Wi-Fi Direct y debe informar del canal real. La decodificación HEVC por software no está disponible; usa la decodificación de vídeo por hardware.</string>
     <string name="settings_mfi_address_hint">La dirección debe empezar por http:// o https://. El token es opcional y se envía como Authorization bearer token.</string>
     <string name="language_section_title">Idioma</string>
     <string name="language_app_language">Idioma de la aplicación</string>
@@ -94,7 +96,7 @@
     <string name="allow_precise_location_for_diplay_in_the_head_unit_s_app_p">Permite «Ubicación precisa» para DiPlay en los permisos de la aplicación de la unidad principal.</string>
     <string name="allow_the_connection_permission_to_continue">Permite el permiso de conexión para continuar</string>
     <string name="an_independent_carplay_receiver_for_android_head_units_wir">Un receptor de CarPlay independiente para unidades principales Android. Las conexiones con cable e inalámbricas se ejecutan en la unidad principal, con autenticación local. Un iPhone estándar puede conectarse sin jailbreak, Mac, dongle ni inicio de sesión.\n\nEsta versión preliminar usa una identidad de accesorio experimental. La compatibilidad con cada iPhone y cada unidad principal sigue en pruebas. No es un producto certificado por Apple.</string>
-    <string name="android_9_compatibility">Compatibilidad con Android 9</string>
+    <string name="android_9_compatibility">Compatibilidad con Android</string>
     <string name="app_permissions">Permisos de la aplicación</string>
     <string name="app_settings">Ajustes de la aplicación</string>
     <string name="apply_and_reconnect">Aplicar y reconectar</string>
@@ -197,6 +199,8 @@
     <string name="hide_bottom_bar">Ocultar barra inferior</string>
     <string name="hide_keyboard">Ocultar teclado</string>
     <string name="hide_the_car_s_system_bars_while_carplay_is_open">Oculta las barras del sistema del coche mientras CarPlay está abierto.</string>
+    <string name="carplay_touch_input">Control táctil de CarPlay</string>
+    <string name="forward_head_unit_touch_to_iphone">Desactívalo para no enviar los toques de la unidad al iPhone. El gesto de tres dedos seguirá abriendo los ajustes de DiPlay.</string>
     <string name="hide_the_navigation_bar">Ocultar barra de navegación</string>
     <string name="hide_the_status_bar">Ocultar barra de estado</string>
     <string name="hide_top_bar">Ocultar barra superior</string>
@@ -295,6 +299,7 @@
     <string name="right_hand_drive">Volante a la derecha</string>
     <string name="running">En ejecución</string>
     <string name="s_1000_ms_most_stable">1000 ms · la más estable</string>
+    <string name="s_0_ms_minimum">0 ms · latencia mínima</string>
     <string name="s_1_choose_your_connection">1 · Elige tu conexión</string>
     <string name="s_1_connect_a_computer_with_adb_installed_to_the_car_using">1. Conecta un ordenador con ADB instalado al coche mediante tu conexión USB o de depuración inalámbrica existente. Aprueba la depuración en el coche si se te pide.\n\n2. Ejecuta este comando en la terminal del ordenador:</string>
     <string name="s_1_open_car_hotspot_settings_turn_the_hotspot_on_and_sele">1. Abre los ajustes del punto de acceso del coche, actívalo y selecciona 5 GHz si está disponible.\n2. Copia abajo su nombre y contraseña exactamente.\n3. Deja el punto de acceso del coche activado al conectarte. DiPlay envía los datos por Bluetooth; tu iPhone se une automáticamente.</string>

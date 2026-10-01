@@ -2,7 +2,6 @@ package com.shilapi.xcertplay.network
 
 import android.content.Context
 import android.net.ConnectivityManager
-import android.net.MacAddress
 import android.net.wifi.SoftApConfiguration
 import android.net.wifi.WifiConfiguration
 import android.net.wifi.WifiManager
@@ -187,10 +186,11 @@ class LocalOnlyHotspotManager(context: Context, private val onDiagnostic: (Strin
         val executor = Executor { main.post(it) }
         if (Build.VERSION.SDK_INT == 33 || Build.VERSION.SDK_INT >= 36) {
             try {
-                val builder = SoftApConfiguration.Builder()
-                SoftApConfiguration.Builder::class.java.getMethod("setSsid", String::class.java)
+                val builderClass = Class.forName("android.net.wifi.SoftApConfiguration\$Builder")
+                val builder = builderClass.getDeclaredConstructor().newInstance()
+                builderClass.getMethod("setSsid", String::class.java)
                     .invoke(builder, "DiPlay-${UUID.randomUUID().toString().take(6)}")
-                SoftApConfiguration.Builder::class.java.getMethod("setPassphrase", String::class.java, Int::class.javaPrimitiveType)
+                builderClass.getMethod("setPassphrase", String::class.java, Int::class.javaPrimitiveType)
                     .invoke(builder, UUID.randomUUID().toString().replace("-", "").take(20), SoftApConfiguration.SECURITY_TYPE_WPA2_PSK)
                 // Request the station's 5 GHz channel, or 36 without a 5 GHz station.
                 // BYD may override even a fixed channel (observed 40 -> 149), so credentials
@@ -200,17 +200,22 @@ class LocalOnlyHotspotManager(context: Context, private val onDiagnostic: (Strin
                 val preferredChannel = stationFrequency?.takeIf { it in 5160..5895 }
                     ?.let(::wifiFrequencyMhzToChannel) ?: 36
                 try {
-                    SoftApConfiguration.Builder::class.java.getMethod("setChannel", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
-                        .invoke(builder, preferredChannel, SoftApConfiguration.BAND_5GHZ)
+                    builderClass.getMethod("setChannel", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+                        .invoke(builder, preferredChannel, 2)
                 } catch (_: NoSuchMethodException) {
                     // Android 11 has no setChannel(channel, band); asking for the band
                     // alone still pins 5 GHz and leaves the channel to the firmware.
-                    SoftApConfiguration.Builder::class.java.getMethod("setBand", Int::class.javaPrimitiveType)
-                        .invoke(builder, SoftApConfiguration.BAND_5GHZ)
+                    builderClass.getMethod("setBand", Int::class.javaPrimitiveType)
+                        .invoke(builder, 2)
                 }
                 val method = if (Build.VERSION.SDK_INT >= 36) "startLocalOnlyHotspotWithConfiguration" else "startLocalOnlyHotspot"
                 WifiManager::class.java.getMethod(method, SoftApConfiguration::class.java, Executor::class.java,
-                    WifiManager.LocalOnlyHotspotCallback::class.java).invoke(wifiManager, builder.build(), executor, callback)
+                    WifiManager.LocalOnlyHotspotCallback::class.java).invoke(
+                    wifiManager,
+                    builderClass.getMethod("build").invoke(builder) as SoftApConfiguration,
+                    executor,
+                    callback,
+                )
                 return preferredChannel
             } catch (failure: ReflectiveOperationException) {
                 if (failure.cause != null && failure.cause !is SecurityException && failure.cause !is UnsupportedOperationException) {
@@ -444,12 +449,10 @@ class LocalOnlyHotspotManager(context: Context, private val onDiagnostic: (Strin
         val ssid = validateSsid(configuration.SSID)
         val security = mapWifiConfigurationSecurity(configuration)
         val passphrase = validatePassphrase(security, unquote(configuration.preSharedKey))
-        val bssid = configuration.BSSID?.let {
-            try {
-                MacAddress.fromString(it)
-            } catch (failure: IllegalArgumentException) {
-                throw IOException("LocalOnlyHotspot reported an invalid BSSID: $it", failure)
-            }
+        val bssid = configuration.BSSID
+        val bssidBytes = bssid?.let { value ->
+            value.toMacAddressBytes()
+                ?: throw IOException("LocalOnlyHotspot reported an invalid BSSID: $value")
         }
         val channel = readWifiConfigurationChannel(configuration)
 
@@ -458,15 +461,17 @@ class LocalOnlyHotspotManager(context: Context, private val onDiagnostic: (Strin
             passphrase = passphrase,
             security = security,
             channel = channel,
-            bssid = bssid?.toString(),
-            bssidBytes = bssid?.toByteArray(),
+            bssid = bssid,
+            bssidBytes = bssidBytes,
             bandLabel = readWifiConfigurationBandLabel(configuration, channel),
         )
     }
 
     @RequiresApi(36)
     private fun readConfiguredChannel(configuration: SoftApConfiguration): Pair<Int, String> {
-        val channels = configuration.channels
+        val channels = SoftApConfiguration::class.java.getMethod("getChannels")
+            .invoke(configuration) as? android.util.SparseIntArray
+            ?: throw IOException("SoftApConfiguration.getChannels returned no channels")
         if (channels.size() != 1) {
             throw IOException("Expected one LocalOnlyHotspot channel, got ${channels.size()}")
         }
@@ -726,8 +731,11 @@ class LocalOnlyHotspotManager(context: Context, private val onDiagnostic: (Strin
             ?: throw IOException("LocalOnlyHotspot did not report its key management")
         val open = keyManagement.get(WifiConfiguration.KeyMgmt.NONE)
         val wpa2 = keyManagement.get(WifiConfiguration.KeyMgmt.WPA2_PSK)
-        val sae = keyManagement.get(WifiConfiguration.KeyMgmt.SAE)
-        val owe = keyManagement.get(WifiConfiguration.KeyMgmt.OWE)
+        // SAE and OWE were added after Android 8.1; resolve their indices lazily.
+        val sae = WifiConfiguration.KeyMgmt::class.java.optionalFlag("SAE")
+            ?.let(keyManagement::get) == true
+        val owe = WifiConfiguration.KeyMgmt::class.java.optionalFlag("OWE")
+            ?.let(keyManagement::get) == true
 
         return when {
             owe -> throw IOException("Unsupported LocalOnlyHotspot security type: OWE")
@@ -755,6 +763,20 @@ class LocalOnlyHotspotManager(context: Context, private val onDiagnostic: (Strin
     private fun ByteArray.toMacAddressString(): String =
         joinToString(":") { "%02x".format(it.toInt() and 0xff) }
 
+    private fun String.toMacAddressBytes(): ByteArray? {
+        val octets = split(':')
+        if (octets.size != 6 || octets.any { it.length != 2 }) return null
+        val bytes = ByteArray(6)
+        for (index in octets.indices) {
+            val value = octets[index].toIntOrNull(16)?.takeIf { it in 0..255 } ?: return null
+            bytes[index] = value.toByte()
+        }
+        return bytes
+    }
+
+    private fun Class<*>.optionalFlag(name: String): Int? =
+        runCatching { getField(name).getInt(null) }.getOrNull()
+
     private fun Inet6Address.toEui64MacAddress(): String? {
         val bytes = address
         if (!isLinkLocalAddress || bytes.size != 16 || bytes[11] != 0xff.toByte() ||
@@ -773,10 +795,10 @@ class LocalOnlyHotspotManager(context: Context, private val onDiagnostic: (Strin
     }
 
     private fun softApBandLabel(band: Int): String = when (band) {
-        SoftApConfiguration.BAND_2GHZ -> "2.4 GHz"
-        SoftApConfiguration.BAND_5GHZ -> "5 GHz"
-        SoftApConfiguration.BAND_6GHZ -> "6 GHz"
-        SoftApConfiguration.BAND_60GHZ -> "60 GHz"
+        1 -> "2.4 GHz"
+        2 -> "5 GHz"
+        4 -> "6 GHz"
+        8 -> "60 GHz"
         else -> "Unknown band ($band)"
     }
 

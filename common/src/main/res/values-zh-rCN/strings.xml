@@ -12,7 +12,7 @@
     <string name="marker_up">上</string>
     <string name="marker_down">下</string>
     <string name="marker_centre_default">居中 · 默认</string>
-    <string name="hotspot_mode_manual_desc">使用车輄自带热点。若车机支持，请在车机设置中选择 5 GHz。</string>
+    <string name="hotspot_mode_manual_desc">使用车机自带热点。若车机支持，请在车机设置中选择 5 GHz。</string>
     <string name="hotspot_mode_p2p_desc">备选方案。需要打开车机 Wi-Fi 开关；2.4 GHz 连接可能会卡顿。</string>
     <string name="hotspot_details_off">热点已关闭 · 请在车机设置中开启。</string>
     <string name="hotspot_details_saved">详情已保存 · 连接前请确认车载热点已开启。</string>
@@ -60,11 +60,13 @@
     <string name="status_attaching_ncm">正在连接 NCM/AirPlay 网络</string>
     <string name="status_failed">失败：%1$s</string>
     <string name="msg_car_hotspot_off">车机热点“%1$s”未开启。请在车机设置中开启后再连接。</string>
+    <string name="msg_car_hotspot_off_unnamed">车机热点未开启。请在车机设置中开启，再在 DiPlay 保存热点名称和密码。</string>
     <string name="home_public_preview">公开预览  ·\u0020\u0020</string>
     <string name="choose_iphone_prefix">选择 iPhone ·\u0020</string>
     <string name="audio_saved_value">已保存：%1$d</string>
     <string name="about_public_preview_prefix">公开预览 ·\u0020</string>
     <string name="msg_car_hotspot_connect">DiPlay 通过车机热点“%1$s”连接。请在车机设置中开启热点后连接。</string>
+    <string name="msg_car_hotspot_connect_unnamed">请先在车机设置中开启热点，再在 DiPlay 保存热点名称和密码后连接。</string>
     <string name="edit_saved_hotspot_prefix">编辑已保存的热点 ·\u0020</string>
     <string name="cluster_adb_multi_device">如果 ADB 列出多个设备，请使用 adb -s &lt;car-device-ID&gt; shell appops set %1$s GET_USAGE_STATS allow。用 adb devices 查询 ID。</string>
     <string name="status_ready_for_prefix">已准备连接：</string>
@@ -72,7 +74,7 @@
     <string name="resolution_handshake_prefix">握手分辨率：</string>
     <string name="safe_area_full_screen_at">安全区域：全屏，</string>
     <string name="safe_area_prefix">安全区域：</string>
-    <string name="settings_android9_compat">以下设置在 Android 9（API 28）上不可用且已隐藏：\n• Wi-Fi P2P（5 GHz）— 将改用 LocalOnlyHotspot。\n• HEVC 软解码器 — 将改用硬件解码。</string>
+    <string name="settings_android9_compat">Android 8.1 的 Wi-Fi Direct 频段由车机系统决定，且须能读取实际频道；不提供 HEVC 软解码，请使用硬件视频解码。</string>
     <string name="settings_mfi_address_hint">地址必须以 http:// 或 https:// 开头。令牌为可选项，将作为 Authorization bearer token 发送。</string>
     <string name="a_familiar_drive">熟悉的驾乘体验。</string>
     <string name="a_previous_wi_fi_direct_connection_is_still_running_reset">之前的 Wi-Fi Direct 连接仍在运行。请重置后再连接。</string>
@@ -88,7 +90,7 @@
     <string name="allow_precise_location_for_diplay_in_the_head_unit_s_app_p">请在车机应用权限中允许 DiPlay 使用精确位置信息。</string>
     <string name="allow_the_connection_permission_to_continue">请授予连接权限以继续</string>
     <string name="an_independent_carplay_receiver_for_android_head_units_wir">面向 Android 车机的独立 CarPlay 接收器。有线和无线连接均在车机上运行，并使用本地认证。普通 iPhone 无需越狱、Mac、转接器或登录即可连接。\n\n此预览版使用实验性配件身份，仍在测试与不同 iPhone 和车机的兼容性。本产品未经 Apple 认证。</string>
-    <string name="android_9_compatibility">Android 9 兼容性</string>
+    <string name="android_9_compatibility">Android 兼容性</string>
     <string name="app_name">DiPlay</string>
     <string name="app_permissions">应用权限</string>
     <string name="app_settings">应用设置</string>
@@ -195,6 +197,8 @@
     <string name="hide_bottom_bar">隐藏底部导航栏</string>
     <string name="hide_keyboard">隐藏键盘</string>
     <string name="hide_the_car_s_system_bars_while_carplay_is_open">打开 CarPlay 时隐藏车机系统栏。</string>
+    <string name="carplay_touch_input">CarPlay 触屏操作</string>
+    <string name="forward_head_unit_touch_to_iphone">关闭后，车机触屏不会控制 iPhone；三指手势仍可打开 DiPlay 设置。</string>
     <string name="hide_the_navigation_bar">隐藏导航栏</string>
     <string name="hide_the_status_bar">隐藏状态栏</string>
     <string name="hide_top_bar">隐藏顶部状态栏</string>
@@ -301,6 +305,7 @@
     <string name="running">运行中</string>
     <string name="s_0_3x">0.3x</string>
     <string name="s_1000_ms_most_stable">1000 毫秒 · 更稳定</string>
+    <string name="s_0_ms_minimum">0 毫秒 · 最低延迟</string>
     <string name="s_1_0x">1.0x</string>
     <string name="s_1_choose_your_connection">1 · 选择连接方式</string>
     <string name="s_1_connect_a_computer_with_adb_installed_to_the_car_using">1. 用装有 ADB 的电脑，通过现有的 USB 或无线调试连接连接到车机。如有调试授权提示请批准。\n\n2. 在电脑终端中运行此命令：</string>

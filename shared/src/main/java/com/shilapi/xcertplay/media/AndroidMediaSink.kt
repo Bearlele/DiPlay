@@ -823,18 +823,18 @@ private class AudioRenderer(
         val selection = mappedSelection()
         mappedChannel = selection.channel
         val streamOverride = channelOverride(selection.channel)
-        val attributes = audioAttributesFor(selection, streamOverride)
-        trackAttributes = attributes
+        var actualAttributes = audioAttributesFor(selection, streamOverride)
+        trackAttributes = actualAttributes
         val plan = MediaAudioBuffer.plan(selection.channel == AudioChannel.MEDIA,
             format.sampleRate, format.channels, minBuffer, mediaBufferMillis)
         bytesPerSecond = format.sampleRate * frameBytes
         val built: AudioTrack
         var routeLabel: String
         if (streamOverride == 0) {
-            val attributes = audioAttributesFor(selection)
+            actualAttributes = audioAttributesFor(selection)
             routeLabel = "usage"
             built = AudioTrack.Builder()
-                .setAudioAttributes(attributes)
+                .setAudioAttributes(actualAttributes)
                 .setAudioFormat(pcmFormat(encoding, channelMask))
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .setBufferSizeInBytes(plan.trackBufferBytes)
@@ -852,8 +852,9 @@ private class AudioRenderer(
                 createFallback = {
                     routeLabel = "streamType=$streamType(fallback=usage)"
                     Log.w(TAG, "streamType=$streamType rejected by this ROM; falling back to usage-based track")
+                    actualAttributes = audioAttributesFor(selection)
                     AudioTrack.Builder()
-                        .setAudioAttributes(audioAttributesFor(selection))
+                        .setAudioAttributes(actualAttributes)
                         .setAudioFormat(pcmFormat(encoding, channelMask))
                         .setTransferMode(AudioTrack.MODE_STREAM)
                         .setBufferSizeInBytes(plan.trackBufferBytes)
@@ -862,7 +863,9 @@ private class AudioRenderer(
             )
         }
         track = built
-        trackAttributes = built.audioAttributes
+        // AudioTrack.getAudioAttributes() was added in API 29. Keep the attributes we passed
+        // to the constructor/builder instead of calling that getter on Android 8.x.
+        trackAttributes = actualAttributes
         val capacityBytes = built.bufferSizeInFrames * frameBytes
         startThresholdBytes = MediaAudioBuffer.startBytesFor(plan.startBytes, capacityBytes, PREBUFFER_WRITE_CHUNK_BYTES)
         report("Audio: ready audioType=${format.audioType} codec=${format.codec} " +

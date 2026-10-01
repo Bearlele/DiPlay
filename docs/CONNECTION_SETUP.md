@@ -14,24 +14,31 @@ selections switch to built-in hotspot. Check and save the car's real hotspot
 details before connecting.
 
 BUILT-IN HOTSPOT SETUP — BOTH APPS
-1. In the car's settings, turn on its built-in Wi-Fi hotspot. Select 5 GHz
-   if available. Note the hotspot name and password exactly.
+1. In the car's settings, turn on its built-in Wi-Fi hotspot. Note whether it
+   uses 2.4 GHz or 5 GHz, and record the hotspot name and password exactly.
 2. Open DiAuto or DiPlay on the car. Go to Settings → Connection setup
    (tap Open connection setup if shown).
 3. Select Built-in car hotspot. Tap Save hotspot details and use this mode
    (or Edit saved hotspot), enter the car's hotspot name and password, and
-   save. Use Hide keyboard if needed. Leave the car hotspot on.
+   save. For DiPlay on Android 8.1, use the car's 2.4 GHz hotspot if that is
+   the band the car provides. Choose the band in the car's settings; DiPlay
+   saves only the hotspot name and password and handles the channel
+   automatically. Use Hide keyboard if needed. Leave the car hotspot on.
 4. Turn on Bluetooth and Wi-Fi on your phone. Pair it with the car's
    Bluetooth. Allow the app permissions requested on the car.
 5. Return to the app and tap Connect phone. Select your phone when asked.
    In DiPlay, use Choose iPhone if you need to select a different phone.
 6. Accept the Android Auto or CarPlay prompts on your phone.
 
-You do not need to join the hotspot manually on your phone before tapping
+On Android 8.1, the 2.4 GHz existing-hotspot route is the intended experimental
+path; the phone and car firmware must support the required Bluetooth-to-Wi-Fi
+handoff on that band. You do not need to join the hotspot manually on your phone before tapping
 Connect phone. The app sends its details over Bluetooth so the phone can
 join automatically. Use the car's hotspot, not your phone's Personal Hotspot.
 ADB is not required for this connection setup. A car internet plan is not
-required; phone internet availability depends on its network settings.
+required for the local CarPlay link. Internet through the car's mobile-data
+connection depends on whether its firmware shares cellular data with the
+existing hotspot; CarPlay can also use the iPhone's own cellular connection.
 If you change the car hotspot name or password, update it in the app too.
 Test one projection app at a time.
 
