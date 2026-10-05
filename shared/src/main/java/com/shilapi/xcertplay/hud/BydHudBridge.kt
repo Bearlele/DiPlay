@@ -33,6 +33,7 @@ internal object BydHudBridge {
     private val lock = Any()
     private val route = BydHudRouteState()
     private var context: Context? = null
+    private var gatewayUnavailableLogged = false
     private var binder: IBinder? = null
     private var binding = false
     private var started = false
@@ -72,6 +73,17 @@ internal object BydHudBridge {
 
     fun initialize(appContext: Context) = synchronized(lock) {
         if (context == null) context = appContext.applicationContext
+        val gatewayInstalled = runCatching {
+            appContext.packageManager.getServiceInfo(ComponentName(SOMEIP_PACKAGE, SOMEIP_CLASS), 0)
+        }.isSuccess
+        if (!gatewayInstalled) {
+            if (!gatewayUnavailableLogged) {
+                Log.i(TAG, "SOME/IP gateway service is not installed; skipping HUD bridge")
+                gatewayUnavailableLogged = true
+            }
+            return@synchronized
+        }
+        gatewayUnavailableLogged = false
         bindLocked()
         if (!senderStarted) {
             senderStarted = true

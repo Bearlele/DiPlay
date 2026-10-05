@@ -119,16 +119,25 @@ class WifiP2pGroupManager(
             val existing = requestGroupInfo(attempt, p2pChannel, REQUEST_POLL_NANOS, requireResponse = true)
             diagnostic("Wi-Fi P2P existingGroup=${existing != null}")
             if (existing != null) {
-                if (!P2pOwnership.canReclaim(existing.isGroupOwner, existing.networkName,
+                val connectionInfo = requestConnectionInfo(
+                    attempt, p2pChannel, REQUEST_POLL_NANOS, requireResponse = true,
+                ) ?: throw IOException("Wi-Fi Direct connection state is unavailable")
+                if (!connectionInfo.groupFormed) {
+                    // Android 8.1 can retain mGroup after it has already removed an
+                    // unexpected group. The connection-info API reports the live state;
+                    // do not mistake that stale object for another app's active group.
+                    diagnostic("Wi-Fi P2P ignoring stale group record liveGroupFormed=false")
+                } else if (!P2pOwnership.canReclaim(existing.isGroupOwner, existing.networkName,
                         ownership.getString("owned_ssid", null), ssidPrefix)) {
                     throw P2pResetRequiredException()
-                }
-                diagnostic("Wi-Fi P2P reclaiming retained owned group")
-                removeGroupBlocking(p2pChannel, existing.networkName)
-                val removalDeadline = minOf(deadlineNanos, deadlineAfter(REMOVE_GROUP_TIMEOUT_MILLIS))
-                while (requestGroupInfo(attempt, p2pChannel, REQUEST_POLL_NANOS, requireResponse = true) != null) {
-                    if (remainingNanos(removalDeadline) == 0L) throw IOException("Wi-Fi Direct reset did not finish")
-                    synchronized(stateLock) { waitNanos(TimeUnit.MILLISECONDS.toNanos(100)) }
+                } else {
+                    diagnostic("Wi-Fi P2P reclaiming retained owned group")
+                    removeGroupBlocking(p2pChannel, existing.networkName)
+                    val removalDeadline = minOf(deadlineNanos, deadlineAfter(REMOVE_GROUP_TIMEOUT_MILLIS))
+                    while (requestGroupInfo(attempt, p2pChannel, REQUEST_POLL_NANOS, requireResponse = true) != null) {
+                        if (remainingNanos(removalDeadline) == 0L) throw IOException("Wi-Fi Direct reset did not finish")
+                        synchronized(stateLock) { waitNanos(TimeUnit.MILLISECONDS.toNanos(100)) }
+                    }
                 }
             }
 
@@ -365,8 +374,36 @@ class WifiP2pGroupManager(
             val passphrase = group.passphrase?.takeIf { it.isNotBlank() }
                 ?: credentials?.passphrase
             val interfaceName = group.getInterface()?.takeIf { it.isNotBlank() }
-            val frequencyMHz = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) group.frequency
-                else LegacyHotspotRadio.read(interfaceName ?: "", null).frequencyMHz ?: 0
+            val legacyRadio = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                LegacyHotspotRadio.read(interfaceName ?: "", null).also { reading ->
+                    diagnostic(
+                        "Legacy Wi-Fi P2P radio read interface=${interfaceName ?: "unknown"} " +
+                            "frequencyMHz=${reading.frequencyMHz ?: "unknown"} " +
+                            "reason=${reading.error ?: "ok"}",
+                    )
+                }
+            } else null
+            val station = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) readStation() else null
+            val stationFrequency = station?.alignmentFrequency
+            val frequencyMHz: Int = when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> group.frequency
+                legacyRadio?.frequencyMHz != null -> requireNotNull(legacyRadio.frequencyMHz)
+                stationFrequency != null -> stationFrequency
+                else -> 0
+            }
+            val frequencySource = when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> "p2p_group"
+                legacyRadio?.frequencyMHz != null -> "driver"
+                stationFrequency != null -> "associated_station_shared_radio"
+                else -> "unavailable"
+            }
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && frequencyMHz > 0) {
+                diagnostic(
+                    "Wi-Fi P2P group frequencyMHz=$frequencyMHz source=$frequencySource " +
+                        "stationState=${station?.state ?: "unknown"} " +
+                        "driverFrequencyMHz=${legacyRadio?.frequencyMHz ?: "unknown"}",
+                )
+            }
             val channelNumber = wifiFrequencyMhzToChannel(frequencyMHz)
             if (
                 networkName == null || passphrase == null ||
@@ -374,7 +411,8 @@ class WifiP2pGroupManager(
                 frequencyMHz <= 0 ||
                 channelNumber == null
             ) {
-                lastReason = "incomplete group details frequencyMHz=$frequencyMHz (Android 8.1 requires a driver channel reading)"
+                lastReason = "incomplete group details frequencyMHz=$frequencyMHz " +
+                    "radio=${legacyRadio?.error ?: "unknown"} (Android 8.1 requires a driver or connected-station frequency)"
                 continue
             }
             val band = when {
@@ -441,17 +479,29 @@ class WifiP2pGroupManager(
         channel: WifiP2pManager.Channel,
         timeoutNanos: Long,
     ): InetAddress? {
+        val info = requestConnectionInfo(attempt, channel, timeoutNanos) ?: return null
+        if (!info.groupFormed) return null
+        return info.groupOwnerAddress?.takeUnless(InetAddress::isAnyLocalAddress)
+    }
+
+    private fun requestConnectionInfo(
+        attempt: StartAttempt,
+        channel: WifiP2pManager.Channel,
+        timeoutNanos: Long,
+        requireResponse: Boolean = false,
+    ): WifiP2pInfo? {
         val result = AtomicReference<WifiP2pInfo?>()
         val latch = CountDownLatch(1)
         p2pManager.requestConnectionInfo(channel) {
             result.set(it)
             latch.countDown()
         }
-        if (!await(latch, timeoutNanos)) return null
+        if (!await(latch, timeoutNanos)) {
+            if (requireResponse) throw IOException("Wi-Fi Direct connection state did not respond")
+            return null
+        }
         ensureStartActive(attempt)
-        val info = result.get() ?: return null
-        if (!info.groupFormed) return null
-        return info.groupOwnerAddress?.takeUnless(InetAddress::isAnyLocalAddress)
+        return result.get()
     }
 
     private fun await(latch: CountDownLatch, timeoutNanos: Long): Boolean = try {

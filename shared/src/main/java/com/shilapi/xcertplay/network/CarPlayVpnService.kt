@@ -16,6 +16,7 @@ import com.shilapi.xcertplay.airplay.PairingStore
 import com.shilapi.xcertplay.mfi.MfiAuthenticator
 import com.shilapi.xcertplay.transport.NcmUsbBridge
 import java.io.IOException
+import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -35,7 +36,7 @@ class CarPlayVpnService : VpnService() {
     }
 
     sealed class AttachResult {
-        data object Started : AttachResult()
+        data class Started(val airPlayPort: Int) : AttachResult()
         data object AlreadyStarted : AttachResult()
         data class Failed(val message: String) : AttachResult()
     }
@@ -103,11 +104,11 @@ class CarPlayVpnService : VpnService() {
             ipv6Bridge.start()
             bridge = ipv6Bridge
 
-            startAirPlayServer(
+            val airPlayPort = startAirPlayServer(
                 generation,
                 AirPlayAttachment(address, config, identity, pairings, mfi, listener, media),
             )
-            AttachResult.Started
+            AttachResult.Started(airPlayPort)
         } catch (error: Exception) {
             releaseLocked()
             AttachResult.Failed(error.message ?: error.javaClass.simpleName)
@@ -135,11 +136,12 @@ class CarPlayVpnService : VpnService() {
         active.set(true)
         val generation = ++attachGeneration
         return try {
-            startAirPlayServer(
+            val airPlayPort = startAirPlayServer(
                 generation,
                 AirPlayAttachment(bindAddress, config, identity, pairings, mfi, listener, media),
+                allowIpv4PortFallback = bindAddress is Inet4Address,
             )
-            AttachResult.Started
+            AttachResult.Started(airPlayPort)
         } catch (error: Exception) {
             releaseLocked()
             AttachResult.Failed(error.message ?: error.javaClass.simpleName)
@@ -162,10 +164,25 @@ class CarPlayVpnService : VpnService() {
     private fun startAirPlayServer(
         generation: Int,
         replacement: AirPlayAttachment,
-    ) {
-        val server = ServerSocket()
-        server.bind(InetSocketAddress(replacement.address, replacement.config.port))
-        attachment = replacement
+        allowIpv4PortFallback: Boolean = false,
+    ): Int {
+        val requestedPort = replacement.config.port
+        var server = ServerSocket()
+        try {
+            server.bind(InetSocketAddress(replacement.address, requestedPort))
+        } catch (error: IOException) {
+            runCatching { server.close() }
+            val addressInUse = error.message.orEmpty().contains("EADDRINUSE", ignoreCase = true) ||
+                error.message.orEmpty().contains("Address already in use", ignoreCase = true)
+            if (!allowIpv4PortFallback || requestedPort != DEFAULT_AIRPLAY_PORT || !addressInUse) {
+                throw error
+            }
+            server = ServerSocket()
+            server.bind(InetSocketAddress(replacement.address, 0))
+            Log.w(TAG, "AirPlay TCP $requestedPort is occupied on IPv4; using ${server.localPort}")
+        }
+        val activeConfig = replacement.config.copy(port = server.localPort)
+        attachment = replacement.copy(config = activeConfig)
         serverSocket = server
         Thread(
             { acceptLoop(generation, server) },
@@ -174,6 +191,7 @@ class CarPlayVpnService : VpnService() {
             isDaemon = true
             start()
         }
+        return server.localPort
     }
 
     private fun acceptLoop(
@@ -298,6 +316,7 @@ class CarPlayVpnService : VpnService() {
         private const val LINK_LOCAL_ROUTE = "fe80::"
         private const val SESSION_NAME = "xcertplay CarPlay"
         private const val TUN_MTU = 1500
+        private const val DEFAULT_AIRPLAY_PORT = 7000
 
         /** Returns the VPN consent intent, or null when consent is already granted. */
         fun prepare(context: Context): Intent? = VpnService.prepare(context)

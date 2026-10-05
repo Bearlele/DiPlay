@@ -7,6 +7,8 @@ import android.bluetooth.BluetoothHeadset
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothSocket
+import com.shilapi.xcertplay.ReglinkBluetooth
+import com.shilapi.xcertplay.transport.ReglinkSppDuplexStream
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -212,7 +214,7 @@ class CarPlayController(
     @Volatile private var hotspot: WirelessHotspotManager? = null
     @Volatile private var bonjour: CarPlayBonjour? = null
     @Volatile private var bluetoothSocket: BluetoothSocket? = null
-    @Volatile private var bluetoothStream: BluetoothRfcommDuplexStream? = null
+    @Volatile private var bluetoothStream: BlockingDuplexByteStream? = null
     @Volatile private var wirelessTunnelChannel: Iap2Session? = null
     @Volatile private var wirelessIdentification: Iap2IdentificationConfig? = null
     @Volatile private var wirelessAirPlayEndpoint: Iap2WirelessCarPlayEndpoint? = null
@@ -898,14 +900,15 @@ class CarPlayController(
                 )
             }
             val hostAddressText = hostAddressText(hostAddress)
-            val deviceIdentifier = hotspotInfo.bssid
-                ?.takeUnless { it.equals(ADAPTER_ADDRESS_PLACEHOLDER, ignoreCase = true) }
-                ?: airPlayConfig.deviceId
+            // The Wi-Fi AP BSSID may change every time the car hotspot starts. Keep the
+            // CarPlay accessory identity tied to its persisted key, and use the live BSSID
+            // only as a property of this hotspot session.
+            val deviceIdentifier = airPlayConfig.deviceId
             debugLog(
                 "wireless hotspot backend=${hotspotInfo.backend.label} " +
                     "iface=${hotspotInfo.interfaceName ?: "unknown"} " +
                     "family=${if (hostAddress is Inet6Address) "IPv6" else "IPv4"} " +
-                    "identitySource=${if (deviceIdentifier == hotspotInfo.bssid) "interface" else "saved"} " +
+                    "identitySource=accessory_key hotspotBssidAvailable=${hotspotInfo.bssid != null} " +
                     "host=$hostAddressText " +
                     "band=${hotspotInfo.bandLabel} channel=${hotspotInfo.channel} " +
                     "frequency=${hotspotInfo.frequencyMHz?.toString() ?: "unknown"}MHz",
@@ -915,21 +918,53 @@ class CarPlayController(
                     ssid = hotspotInfo.ssid,
                     band = hotspotInfo.bandLabel,
                     channel = hotspotInfo.channel,
-                    bssid = deviceIdentifier,
+                    bssid = hotspotInfo.bssid ?: deviceIdentifier,
                     address = hostAddressText,
                     backend = hotspotInfo.backend.label,
                 ),
             )
             onStatus(CarPlayStatus.WaitingForPairedIphone)
 
-            val adapter = bluetoothAdapter
-                ?: throw IOException("Bluetooth adapter is unavailable")
-            if (!adapter.isEnabled) throw IOException("Bluetooth is not enabled")
-            val device = selectWirelessBluetoothDevice(adapter)
-            val hostBluetoothMac = accessoryBluetoothMac(adapter)
+            val adapter = bluetoothAdapter?.takeIf { it.isEnabled }
+            val selectedAddress = if (adapter != null) {
+                selectWirelessBluetoothDevice(adapter).address
+            } else {
+                val devices = runCatching { ReglinkBluetooth.pairedDevices() }
+                    .getOrElse { throw IOException("Could not read the car's paired Bluetooth devices", it) }
+                val selected = config.wirelessBluetoothDeviceAddress?.let { address ->
+                    devices.firstOrNull { it.address.equals(address, ignoreCase = true) }
+                } ?: devices.singleOrNull()
+                selected?.address ?: throw IOException("Choose one paired iPhone in DiPlay first")
+            }
+            val selectedName = if (adapter != null) {
+                runCatching { adapter.getRemoteDevice(selectedAddress).name }.getOrNull()
+            } else {
+                runCatching { ReglinkBluetooth.pairedDevices().firstOrNull { it.address.equals(selectedAddress, true) }?.name }.getOrNull()
+            }
+            var localBluetoothIdentityFailure: String? = null
+            val localBluetoothIdentity = if (adapter != null) {
+                runCatching { accessoryBluetoothMac(adapter) }
+                    .onFailure { localBluetoothIdentityFailure = "android:${it.javaClass.simpleName}" }
+                    .getOrNull()?.let { "android" to it }
+            } else {
+                runCatching { ReglinkBluetooth.localDevice().address }
+                    .onFailure { localBluetoothIdentityFailure = "reglink:${ReglinkBluetooth.localDeviceFailureCategory(it)}" }
+                    .getOrNull()?.let { "reglink" to it }
+                    ?: runCatching { Settings.Secure.getString(appContext.contentResolver, "bluetooth_address") }
+                        .onFailure { localBluetoothIdentityFailure = "settings:${it.javaClass.simpleName}" }
+                        .getOrNull()
+                        ?.takeIf { it.matches(Regex("(?i)([0-9a-f]{2}:){5}[0-9a-f]{2}")) }
+                        ?.let { "settings" to it }
+            }
+            val hostBluetoothMac = localBluetoothIdentity?.second
+                ?: run {
+                    debugLog("wireless local Bluetooth identity unavailable failure=${localBluetoothIdentityFailure ?: "empty"}")
+                    throw IOException("The car's Bluetooth address is unavailable")
+                }
+            debugLog("wireless local Bluetooth identity source=${localBluetoothIdentity.first}")
             debugLog(
-                "wireless selected Bluetooth target name=${device.name ?: "unknown"} " +
-                    "address=${device.address} localBt=$hostBluetoothMac",
+                "wireless selected Bluetooth target name=${selectedName ?: "unknown"} " +
+                    "backend=${if (adapter == null) "reglink" else "android"}",
             )
             val wirelessAirPlayConfig = airPlayConfig.copy(
                 deviceId = deviceIdentifier,
@@ -939,7 +974,7 @@ class CarPlayController(
             onStatus(CarPlayStatus.AttachingNetwork)
             val service = awaitVpnService()
                 ?: throw IOException("Could not bind the CarPlay AirPlay service")
-            when (
+            val activeAirPlayPort = when (
                 val result = service.attachWireless(
                     bindAddress = hostAddress,
                     config = wirelessAirPlayConfig,
@@ -950,15 +985,16 @@ class CarPlayController(
                     media = media,
                 )
             ) {
-                CarPlayVpnService.AttachResult.Started -> Unit
+                is CarPlayVpnService.AttachResult.Started -> result.airPlayPort
                 CarPlayVpnService.AttachResult.AlreadyStarted ->
                     throw IOException("Wireless AirPlay transport is already attached")
                 is CarPlayVpnService.AttachResult.Failed ->
                     throw IOException(result.message)
             }
+            val activeWirelessAirPlayConfig = wirelessAirPlayConfig.copy(port = activeAirPlayPort)
             debugLog(
                 "wireless AirPlay listener attached bind=$hostAddressText " +
-                    "port=${airPlayConfig.port}",
+                    "port=${activeWirelessAirPlayConfig.port}",
             )
             if (isStaleWirelessRun(generation)) {
                 closeWirelessStack()
@@ -967,7 +1003,7 @@ class CarPlayController(
 
             val bonjourClient = CarPlayBonjour(
                 context = appContext,
-                config = wirelessAirPlayConfig,
+                config = activeWirelessAirPlayConfig,
                 identity = identity,
                 advertisedHost = hostAddress.hostAddress,
                 // Bind discovery and its connect probe to the same AP/address family as AirPlay.
@@ -985,23 +1021,27 @@ class CarPlayController(
             }
 
             onStatus(CarPlayStatus.ConnectingBluetooth)
-            debugLog(
-                "wireless RFCOMM connecting address=${device.address} " +
-                    "uuid=$IAP2_IPHONE_UUID",
-            )
-            val socket = device
+            val stream: BlockingDuplexByteStream = if (adapter == null) {
+                debugLog("wireless OEM SPP requesting iAP2 service")
+                ReglinkSppDuplexStream(selectedAddress) { token, detail ->
+                    debugLog("wireless OEM SPP event=$token $detail")
+                }.also { bluetoothStream = it }
+            } else {
+                debugLog("wireless RFCOMM connecting uuid=$IAP2_IPHONE_UUID")
+                val socket = adapter.getRemoteDevice(selectedAddress)
                     .createRfcommSocketToServiceRecord(UUID.fromString(IAP2_IPHONE_UUID))
                     .also { bluetoothSocket = it }
-            connectBluetoothSocket(socket, device.address)
-            debugLog("wireless RFCOMM connected address=${device.address}")
+                connectBluetoothSocket(socket, selectedAddress)
+                debugLog("wireless RFCOMM connected")
+                BluetoothRfcommDuplexStream(socket).also { bluetoothStream = it }
+            }
             if (isStaleWirelessRun(generation)) {
                 closeWirelessStack()
                 return
             }
-            val stream = BluetoothRfcommDuplexStream(socket).also { bluetoothStream = it }
             val channel = Iap2Session.openWireless(
                 stream,
-                traceContext = "wireless-rfcomm",
+                traceContext = if (adapter == null) "wireless-reglink-spp" else "wireless-rfcomm",
                 onTrace = ::debugLog,
             ).also { csm = it }
             debugLog("wireless iAP2 CSM channel opened over RFCOMM")
@@ -1018,7 +1058,7 @@ class CarPlayController(
                 channel = hotspotInfo.channel,
                 security = hotspotInfo.security,
                 ipAddresses = listOf(hostAddressText),
-                airPlayPort = airPlayConfig.port,
+                airPlayPort = activeWirelessAirPlayConfig.port,
                 deviceIdentifier = deviceIdentifier,
                 publicKey = identity.publicKeyHex,
                 sourceVersion = airPlayConfig.sourceVersion,
@@ -1288,7 +1328,7 @@ class CarPlayController(
 
         val activeStream = bluetoothStream
         bluetoothStream = null
-        if (activeStream != null) closeBestEffort("wireless RFCOMM stream") { activeStream.close() }
+        if (activeStream != null) closeBestEffort("wireless Bluetooth stream") { activeStream.close() }
 
         val activeSocket = bluetoothSocket
         bluetoothSocket = null
@@ -1918,7 +1958,7 @@ class CarPlayController(
             return false
         }
         return when (result) {
-            CarPlayVpnService.AttachResult.Started -> {
+            is CarPlayVpnService.AttachResult.Started -> {
                 debugLog("wired VPN/NCM transport attach result=started")
                 true
             }

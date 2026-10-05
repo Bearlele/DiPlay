@@ -87,6 +87,7 @@
     <string name="a_previous_wi_fi_direct_connection_is_still_running_reset">A previous Wi-Fi Direct connection is still running. Reset it to connect.</string>
     <string name="about">About</string>
     <string name="about_diplay">About DiPlay</string>
+    <string name="test_build_identifier">TEST BUILD · K80-WIFI-P2P-20261005-13</string>
     <string name="active">Active</string>
     <string name="advanced_audio_channel_mapping">Advanced audio channel mapping</string>
     <string name="airplay_icon">AirPlay icon</string>

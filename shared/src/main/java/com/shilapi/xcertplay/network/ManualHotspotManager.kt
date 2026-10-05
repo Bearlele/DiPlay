@@ -254,8 +254,17 @@ class ManualHotspotManager(
         return score
     }
 
-    private fun NetworkInterface.hotspotAddress(): InetAddress? =
-        wirelessHostAddress(Collections.list(inetAddresses), index)
+    private fun NetworkInterface.hotspotAddress(): InetAddress? {
+        val addresses = Collections.list(inetAddresses)
+        // Android 8.1's SoftAP advertises an IPv4 DHCP pool to the iPhone. Keep the AirPlay
+        // listener, Bonjour record, and iAP2 endpoint on that same reachable IPv4 network;
+        // Wi-Fi Direct retains the shared IPv6-first selection path.
+        addresses.filterIsInstance<Inet4Address>().firstOrNull {
+            !it.isLoopbackAddress && !it.isLinkLocalAddress &&
+                !it.isAnyLocalAddress && !it.isMulticastAddress
+        }?.let { return it }
+        return wirelessHostAddress(addresses, index)
+    }
 
     private fun frequencyFromConnectionInfo(): Int? {
         val connectionInfo = try {

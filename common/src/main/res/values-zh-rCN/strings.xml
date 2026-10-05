@@ -1,4 +1,5 @@
 <resources>
+    <string name="test_build_identifier">测试构建 · K80-WIFI-P2P-20261005-13</string>
     <string name="built_in_car_hotspot">车载热点</string>
     <string name="wifi_direct">Wi-Fi Direct</string>
     <string name="hotspot_hint_manual">车载热点 · 保持车载热点、蓝牙和 iPhone 的 Wi-Fi 开启。</string>

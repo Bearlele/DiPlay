@@ -5,6 +5,7 @@ package com.shilapi.xcertplay
 import android.Manifest
 import android.app.AlertDialog
 import android.bluetooth.BluetoothManager
+import android.bluetooth.BluetoothDevice
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -103,6 +104,7 @@ class DiPlayActivity : ComponentActivity() {
             android.util.Log.e("DiPlaySetup", "CarPlay authentication could not be loaded", it)
             getString(R.string.setup_error_auth)
         }
+        probeOemBluetoothIdentity()
         pendingCarHotspotSetup = savedInstanceState?.getBoolean("pending_car_hotspot") ?: false
         page = savedInstanceState?.getString("page") ?: intent.getStringExtra("page") ?: "home"
         render()
@@ -141,6 +143,18 @@ class DiPlayActivity : ComponentActivity() {
     }
     override fun onPause() { handler.removeCallbacks(tick); super.onPause() }
 
+    /** Read-only diagnostic for head units whose OEM Bluetooth stack is not exposed by Android. */
+    private fun probeOemBluetoothIdentity() {
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) return
+        val adapter = getSystemService(BluetoothManager::class.java)?.adapter
+        if (adapter?.isEnabled == true) return
+        Thread({
+            runCatching { ReglinkBluetooth.localDevice() }
+                .onSuccess { android.util.Log.i("DiPlayBluetoothProbe", "OEM local identity result=available valid=true") }
+                .onFailure { android.util.Log.w("DiPlayBluetoothProbe", "OEM local identity result=failed category=${ReglinkBluetooth.localDeviceFailureCategory(it)}") }
+        }, "DiPlay-Bluetooth-Probe").apply { isDaemon = true }.start()
+    }
+
     private fun render() {
         status = null; connectButton = null; disconnectButton = null; lastRunning = null
         val scroll = ScrollView(this).apply { setBackgroundColor(BG); isFillViewport = true; clipToPadding = false }
@@ -148,7 +162,15 @@ class DiPlayActivity : ComponentActivity() {
         scroll.addView(content)
         val header = row().apply { gravity = Gravity.CENTER_VERTICAL }
         header.addView(ImageView(this).apply { setImageResource(R.drawable.ic_carplay); contentDescription = getString(R.string.carplay) }, LinearLayout.LayoutParams(dp(36), dp(36)))
-        header.addView(label(getString(R.string.diplay), 26, TEXT, true).apply { setPadding(dp(12), 0, 0, 0) }, LinearLayout.LayoutParams(0, dp(56), 1f))
+        val brand = column().apply {
+            setPadding(dp(12), 0, 0, 0)
+            gravity = Gravity.CENTER_VERTICAL
+            addView(label(getString(R.string.diplay), 26, TEXT, true))
+            if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+                addView(label(getString(R.string.test_build_identifier), 10, ACCENT, true))
+            }
+        }
+        header.addView(brand, LinearLayout.LayoutParams(0, dp(56), 1f))
         header.addView(button(if (page == "home") getString(R.string.car_home) else getString(R.string.back), false) {
             if (page == "home") startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))
             else { page = "home"; render() }
@@ -869,32 +891,48 @@ class DiPlayActivity : ComponentActivity() {
             bluetoothPermission.launch(Manifest.permission.BLUETOOTH_CONNECT); return
         }
         val adapter = getSystemService(BluetoothManager::class.java)?.adapter
-        if (adapter == null || !adapter.isEnabled) {
-            AlertDialog.Builder(this).setTitle(getString(R.string.turn_on_bluetooth))
-                .setMessage(getString(R.string.enable_the_car_s_bluetooth_and_pair_your_iphone_first))
-                .setPositiveButton(getString(R.string.open_bluetooth)) { _, _ -> openSystem(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
-                .setNegativeButton(getString(R.string.later), null).show(); return
+        val frameworkDevices = if (adapter?.isEnabled == true) {
+            runCatching { adapter.bondedDevices.sortedBy { it.name ?: "" } }.getOrDefault(emptyList())
+        } else emptyList()
+        if (frameworkDevices.isNotEmpty()) {
+            showPhonePicker(frameworkDevices.map {
+                PhoneOption(it, it.name ?: getString(R.string.paired_device), it.address)
+            })
+            return
         }
-        val devices = runCatching { adapter.bondedDevices.sortedBy { it.name ?: "" } }.getOrDefault(emptyList())
+        Thread({
+            val oemDevices = runCatching { ReglinkBluetooth.pairedDevices().sortedBy { it.name } }
+                .onFailure { Log.e("DiPlayBluetooth", "OEM paired-device query failed", it) }
+                .getOrDefault(emptyList())
+            runOnUiThread {
+                if (!isFinishing) showPhonePicker(oemDevices.map {
+                    PhoneOption(null, it.name.ifBlank { getString(R.string.paired_device) }, it.address)
+                })
+            }
+        }, "diplay-oem-bluetooth-query").start()
+    }
+
+    private fun showPhonePicker(devices: List<PhoneOption>) {
         if (devices.isEmpty()) {
             AlertDialog.Builder(this).setTitle(getString(R.string.pair_your_iphone))
                 .setMessage(getString(R.string.on_your_iphone_open_settings_bluetooth_and_pair_with_the_c))
-                .setPositiveButton(getString(R.string.open_bluetooth)) { _, _ -> openSystem(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
-                .setNegativeButton(getString(R.string.got_it), null).show(); return
+                .setPositiveButton(getString(R.string.got_it), null).show(); return
         }
         AlertDialog.Builder(this).setTitle(getString(R.string.choose_your_iphone))
             .setItems(devices.map { device ->
-                val name = device.name ?: getString(R.string.paired_device)
+                val name = device.name
                 if (devices.count { it.name == device.name } > 1) "$name · ${device.address.takeLast(5)}" else name
             }.toTypedArray()) { _, index ->
                 val device = devices[index]
-                DiPlayPreferences.savePhone(this, device.address, device.name ?: "iPhone")
+                DiPlayPreferences.savePhone(this, device.address, device.name)
                 val start = pendingWireless; pendingWireless = false
                 render()
                 if (start) connect(true)
             }.setNeutralButton(getString(R.string.pair_another)) { _, _ -> openSystem(Intent(Settings.ACTION_BLUETOOTH_SETTINGS)) }
             .setNegativeButton(getString(R.string.cancel)) { _, _ -> pendingWireless = false }.show()
     }
+
+    private data class PhoneOption(val frameworkDevice: BluetoothDevice?, val name: String, val address: String)
 
     private fun wirelessHelp() {
         AlertDialog.Builder(this).setTitle(getString(R.string.wireless_connection_help))

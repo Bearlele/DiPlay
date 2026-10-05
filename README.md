@@ -10,7 +10,7 @@
 
 ## 0.2.8 — public preview
 
-Install on the **car**, not the iPhone. No jailbreak, dongle, Mac, account or authentication server is required for use. Core CarPlay does not require ADB; optional dashboard, battery, wheel-speed and parked-video features do. Your head unit must permit APK installation. The Android 8.0+ (API 26) compatibility port is experimental and needs testing on the target unit. It offers the existing car hotspot and a legacy Wi-Fi Direct path; the latter needs a readable driver frequency. Wireless CarPlay video and audio were confirmed by the user on a physical Android 8.0 phone. Wired use and the target head unit still need verification.
+Install on the **car**, not the iPhone. No jailbreak, dongle, Mac, account or authentication server is required for use. Core CarPlay does not require ADB; optional dashboard, battery, wheel-speed and parked-video features do. Your head unit must permit APK installation. The Android 8.0+ (API 26) port offers car hotspot and Wi-Fi Direct modes. Wireless video and audio were confirmed on an Android 8.0 phone; Wi-Fi Direct video, audio, touch and reconnect were confirmed on an Android 8.1 K80 head unit. That unit supports only 2.4 GHz and has a lower frame rate than a native receiver. Wired CarPlay has not been verified on it.
 
 - Wired USB and wireless CarPlay with local authentication.
 - BYD HUD navigation with arrows, distance and street names on verified firmware.
@@ -36,12 +36,12 @@ Earlier releases were tested on the development DiLink5.1 car: live windshield g
 - Optional iOS 27 video playback on the car screen while parked, with iPhone, touchscreen and steering-wheel controls. Playback closes when the car leaves P.
 - DRM-protected video such as Apple TV+ is not supported; DiPlay is not a licensed FairPlay receiver. Netflix does not support AirPlay.
 
-## Android 8 compatibility work in this branch (unreleased)
+## Android 8 compatibility in this branch (0.2.9)
 
-These source changes are not part of the published 0.2.8 APK:
+These changes are in this branch's locally built 0.2.9 package, not the upstream 0.2.8 APK:
 
 - Lower the Android app minimum to Android 8.0 (API 26) and retain a legacy Wi-Fi Direct connection path. The actual Wi-Fi band is selected by the head-unit firmware and depends on its driver.
-- Wireless CarPlay video and audio were confirmed on a physical Xiaomi Mi 6 running Android 8.0. The target Android 8.1 head unit and wired CarPlay still need testing.
+- Wireless CarPlay video and audio were confirmed on a Xiaomi Mi 6 running Android 8.0. Wi-Fi Direct video, audio, touch and reconnect were confirmed on the Android 8.1 K80 head unit. Wired CarPlay remains unverified there.
 - Add a 0 ms music-buffer option that starts on the first decoded audio chunk, alongside 300, 500 and 1000 ms. Zero means no extra prebuffer; it cannot remove decoder or hardware latency and may stutter on an unstable link.
 - Add a setting to stop forwarding head-unit touchscreen events to the iPhone while keeping CarPlay video and audio available.
 - Allow screen-size-triggered reconnects more time to close the previous wireless stack and release its Wi-Fi Direct group.
