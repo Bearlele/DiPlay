@@ -202,6 +202,7 @@ class WifiP2pGroupManager(
                 attempt = attempt,
                 channel = p2pChannel,
                 credentials = if (creation.mode == P2pCreationMode.SYSTEM_DEFAULT) null else credentials,
+                initialStationFrequency = stationFrequency,
                 deadlineNanos = deadlineNanos,
                 timeoutMillis = timeoutMillis,
             )
@@ -343,10 +344,12 @@ class WifiP2pGroupManager(
         attempt: StartAttempt,
         channel: WifiP2pManager.Channel,
         credentials: Credentials?,
+        initialStationFrequency: Int?,
         deadlineNanos: Long,
         timeoutMillis: Long,
     ): WirelessHotspotInfo {
         var lastReason = "group information was not available"
+        var lastRadioDiagnostic: String? = null
         while (true) {
             ensureStartActive(attempt)
             val remainingNanos = remainingNanos(deadlineNanos)
@@ -376,11 +379,14 @@ class WifiP2pGroupManager(
             val interfaceName = group.getInterface()?.takeIf { it.isNotBlank() }
             val legacyRadio = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
                 LegacyHotspotRadio.read(interfaceName ?: "", null).also { reading ->
-                    diagnostic(
+                    val message =
                         "Legacy Wi-Fi P2P radio read interface=${interfaceName ?: "unknown"} " +
                             "frequencyMHz=${reading.frequencyMHz ?: "unknown"} " +
-                            "reason=${reading.error ?: "ok"}",
-                    )
+                            "reason=${reading.error ?: "ok"}"
+                    if (message != lastRadioDiagnostic) {
+                        diagnostic(message)
+                        lastRadioDiagnostic = message
+                    }
                 }
             } else null
             val station = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) readStation() else null
@@ -397,6 +403,15 @@ class WifiP2pGroupManager(
                 stationFrequency != null -> "associated_station_shared_radio"
                 else -> "unavailable"
             }
+            // This K80 firmware cannot answer SIOCGIWFREQ for p2p0. Its radio is
+            // 2.4 GHz only, so an offline group can still be advertised with the
+            // iAP2 auto channel while the iPhone scans for the supplied SSID.
+            val k80AutoChannel = frequencyMHz <= 0 && initialStationFrequency == null &&
+                Build.VERSION.SDK_INT == Build.VERSION_CODES.O_MR1 &&
+                Build.DEVICE.equals("k80_bsp", ignoreCase = true) &&
+                runCatching {
+                    appContext.getSystemService(WifiManager::class.java)?.is5GHzBandSupported == false
+                }.getOrDefault(false)
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && frequencyMHz > 0) {
                 diagnostic(
                     "Wi-Fi P2P group frequencyMHz=$frequencyMHz source=$frequencySource " +
@@ -404,21 +419,29 @@ class WifiP2pGroupManager(
                         "driverFrequencyMHz=${legacyRadio?.frequencyMHz ?: "unknown"}",
                 )
             }
-            val channelNumber = wifiFrequencyMhzToChannel(frequencyMHz)
+            val channelNumber = if (k80AutoChannel) 0 else wifiFrequencyMhzToChannel(frequencyMHz)
             if (
                 networkName == null || passphrase == null ||
                 interfaceName == null ||
-                frequencyMHz <= 0 ||
+                (frequencyMHz <= 0 && !k80AutoChannel) ||
                 channelNumber == null
             ) {
                 lastReason = "incomplete group details frequencyMHz=$frequencyMHz " +
                     "radio=${legacyRadio?.error ?: "unknown"} (Android 8.1 requires a driver or connected-station frequency)"
+                val pauseNanos = minOf(remainingNanos(deadlineNanos), TimeUnit.MILLISECONDS.toNanos(100))
+                if (pauseNanos > 0) synchronized(stateLock) {
+                    waitNanos(pauseNanos)
+                }
                 continue
             }
             val band = when {
+                k80AutoChannel -> "2.4 GHz"
                 is5Ghz(frequencyMHz) -> "5 GHz"
                 frequencyMHz in 2412..2484 -> "2.4 GHz"
                 else -> throw IOException("Wi-Fi P2P returned an unsupported band at ${frequencyMHz}MHz")
+            }
+            if (k80AutoChannel) {
+                diagnostic("Wi-Fi P2P K80 offline group: live channel unavailable; advertising iAP2 auto channel")
             }
 
             val hostAddress = awaitInterfaceAddress(attempt, interfaceName, deadlineNanos)
@@ -437,7 +460,7 @@ class WifiP2pGroupManager(
                 passphrase = passphrase,
                 security = groupSecurity(group),
                 channel = channelNumber,
-                frequencyMHz = frequencyMHz,
+                frequencyMHz = frequencyMHz.takeIf { it > 0 },
                 bssid = interfaceHardwareAddress(interfaceName)
                     ?: group.owner?.deviceAddress?.takeIf { it.isNotBlank() },
                 interfaceName = interfaceName,

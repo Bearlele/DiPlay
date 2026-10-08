@@ -18,7 +18,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = 28
-        versionName = "0.2.9"
+        versionName = providers.environmentVariable("DIPLAY_VERSION_NAME").getOrElse("0.2.9")
 
     }
 

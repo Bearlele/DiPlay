@@ -3284,10 +3284,15 @@ class CarPlayHostActivity : ComponentActivity() {
         if (reconnectScheduled) return
         reconnectScheduled = true
         val generation = restartGeneration
-        val delayMillis = if (reason.contains("AirPlay iAP tunnel", ignoreCase = true)) {
-            IAP_TUNNEL_RECONNECT_DELAY_MILLIS
-        } else {
-            (RECONNECT_DELAY_MILLIS * (1L shl reconnectAttempts.coerceAtMost(4))).coerceAtMost(30_000L)
+        val delayMillis = when {
+            reason.contains("AirPlay iAP tunnel", ignoreCase = true) ->
+                IAP_TUNNEL_RECONNECT_DELAY_MILLIS
+            // BLINK may still be tearing down SPP after it reports a disconnect. Starting
+            // another UUID request immediately can crash this head unit's SPP bridge.
+            reason.contains("OEM SPP", ignoreCase = true) ->
+                OEM_SPP_RECONNECT_DELAY_MILLIS
+            else ->
+                (RECONNECT_DELAY_MILLIS * (1L shl reconnectAttempts.coerceAtMost(4))).coerceAtMost(30_000L)
         }
         reconnectAttempts += 1
         appendLog("$reason; retrying in ${delayMillis}ms")
@@ -3670,6 +3675,7 @@ class CarPlayHostActivity : ComponentActivity() {
         const val DISPLAY_CHANGE_DEBOUNCE_MILLIS = 500L
         const val RECONNECT_DELAY_MILLIS = 2_000L
         const val IAP_TUNNEL_RECONNECT_DELAY_MILLIS = 15_000L
+        const val OEM_SPP_RECONNECT_DELAY_MILLIS = 30_000L
         const val CONTROLLER_CLOSE_TIMEOUT_MILLIS = 4_000L
         const val WIRELESS_RESTART_SETTLE_MILLIS = 1_500L
         const val AUDIO_CAPTURE_MARKER = "audio-capture.enabled"
